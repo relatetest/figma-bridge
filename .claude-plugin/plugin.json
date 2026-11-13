@@ -1,6 +1,6 @@
 {
   "name": "figma-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lets an AI agent work live in an open Figma file through the local relate→←figma plugin and bridge, on macOS and Windows, without the Figma MCP.",
   "author": {
     "name": "Relate Studio",

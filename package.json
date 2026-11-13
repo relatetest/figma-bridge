@@ -1,6 +1,6 @@
 {
   "name": "figma-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "relate→←figma: an AI agent works live in your open Figma file. npx -y github:relatetest/figma-bridge",
   "bin": {
