@@ -1,6 +1,6 @@
-# Working in {{name}}
+# Working in figma-bridge
 
-This repo is a Claude Code plugin by {{owner}} in the Relate Studio org, also installable with `npx skills`. It reaches the team only through the studio catalog `relatetest/hub`, pinned to a release tag.
+This repo is a Claude Code plugin by @Piwqust in the Relate Studio org, also installable with `npx skills`. It reaches the team only through the studio catalog `relatetest/hub`, pinned to a release tag.
 
 ## Rules
 

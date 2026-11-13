@@ -2,17 +2,17 @@
   "prefix": "relate-",
   "skillsDir": "skills",
   "evalsDir": "evals",
-  "repo": "relatetest/template-plugin",
+  "repo": "relatetest/figma-bridge",
   "hub": "relatetest/hub",
-  "maintainers": "@relatetest/maintainers",
+  "maintainers": "@Piwqust",
   "plugin": {
-    "name": "template-plugin",
+    "name": "figma-bridge",
     "description": "{{One sentence in English: what the plugin does and for whom}}",
     "author": {
       "name": "Relate Studio",
       "url": "https://relate.studio"
     },
-    "homepage": "https://github.com/relatetest/template-plugin",
+    "homepage": "https://github.com/relatetest/figma-bridge",
     "license": "Proprietary",
     "keywords": [
       "relate"

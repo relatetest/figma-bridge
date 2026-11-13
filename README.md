@@ -1,4 +1,4 @@
-# {{name}}
+# figma-bridge
 
 {{Одно-два предложения: что делает плагин и для кого.}}
 
@@ -11,20 +11,20 @@ claude plugin marketplace add relatetest/hub
 ```
 
 ```bash
-claude plugin install {{name}}@relate
+claude plugin install figma-bridge@relate
 ```
 
 Codex, Cursor и другие агенты — тег из колонки «Версия» в каталоге:
 
 ```bash
-npx skills add relatetest/{{name}}@v0.1.0 -g -a codex --copy
+npx skills add relatetest/figma-bridge@v0.1.0 -g -a codex --copy
 ```
 
 {{Если нужны дополнительные шаги — ключ MCP-сервера, локальный сервер, Figma-плагин, — опишите их здесь по порядку. Если не нужны, удалите этот абзац.}}
 
 ## Как пользоваться
 
-{{Два-три настоящих запроса и что получится. Для ручных скиллов — как вызвать: /{{name}}:relate-…}}
+{{Два-три настоящих запроса и что получится. Для ручных скиллов — как вызвать: /figma-bridge:relate-…}}
 
 ## Скиллы
 
@@ -57,4 +57,4 @@ npm run check
 
 ## Владелец
 
-{{owner}}, заместитель — {{@login}}
+@Piwqust, заместитель — {{@login}}
