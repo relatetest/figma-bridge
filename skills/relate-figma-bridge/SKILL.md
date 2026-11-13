@@ -11,7 +11,7 @@ license: Proprietary
 compatibility: Needs Node 18+ and the Figma desktop app with the relate→←figma plugin imported. macOS and Windows.
 metadata:
   owner: "@Piwqust"
-  version: "0.1.0"
+  version: "0.2.0"
   status: experimental
   category: design
 ---
@@ -41,7 +41,7 @@ Run exactly this (it installs on first use, updates when the skill is newer, cha
 node "${CLAUDE_SKILL_DIR}/scripts/install.mjs"
 ```
 
-It prints JSON: `home` (the bridge folder, `$RELATE_FIGMA_BRIDGE` or `~/.relate/figma-bridge`), `fig`, `startServer`, `manifest`, `changed`. Use the absolute paths from it in every later command; `~` does not expand for `node` in PowerShell. `--where` prints the same without writing.
+Outside Claude Code, `${CLAUDE_SKILL_DIR}` is the folder that holds this SKILL.md. It prints JSON: `home` (the bridge folder, `$RELATE_FIGMA_BRIDGE` or `~/.relate/figma-bridge`), `fig`, `startServer`, `manifest`, `changed`. Use the absolute paths from it in every later command; `~` does not expand for `node` in PowerShell. `--where` prints the same without writing.
 
 If `changed` contains `plugin/manifest.json`, the plugin is new on this computer. Ask the person to import it once: Figma desktop → Plugins → Development → Import plugin from manifest… → the `manifest` path. Development plugins never run in Figma in the browser. Dev Mode needs a second import of `devManifest`.
 
@@ -111,7 +111,7 @@ The skill loads by its description. To make the route above part of a project's 
 node "${CLAUDE_SKILL_DIR}/scripts/install.mjs" --project .
 ```
 
-`--global` writes the same rule into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`; `--remove` takes it out; `--dry-run` shows the plan. The rule sits between `relate-figma-bridge:start/end` markers, so running it again updates it in place.
+`--global` writes the same rule into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`; `--skills` copies this skill to `~/.claude/skills` and `~/.agents/skills` for the other agents on the computer; `--remove` takes the rule out; `--dry-run` shows the plan. The rule sits between `relate-figma-bridge:start/end` markers, so running it again updates it in place.
 
 ## Bridge files
 

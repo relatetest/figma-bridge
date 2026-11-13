@@ -6,43 +6,54 @@
 
 ## Установка
 
-Нужны Node.js 18 или новее (https://nodejs.org, версия LTS) и настольное приложение Figma: в браузере плагины разработчика не запускаются.
+Самое простое: скопируй своему агенту (Claude Code, Codex, Cursor) эту фразу, он всё сделает сам:
 
-### 1. Скилл в агента
+```text
+Установи мне мост Figma https://github.com/relatetest/figma-bridge по разделу «Для агента» в его README и скажи, что мне нажать в Figma.
+```
 
-Claude Code, из каталога студии [relatetest/hub](https://github.com/relatetest/hub). Один раз подготовь git по [инструкции каталога](https://github.com/relatetest/hub#установка) (`gh auth login`, `gh auth setup-git`), затем:
+Или одной командой в терминале, если стоит Node.js 18+ (https://nodejs.org, версия LTS):
 
 ```bash
-claude plugin marketplace add relatetest/hub
+npx -y github:relatetest/figma-bridge
 ```
+
+Что она делает:
+
+- кладёт мост в постоянную папку `~/.relate/figma-bridge` (на Windows `C:\Users\<ты>\.relate\figma-bridge`). Постоянная она потому, что Figma запоминает путь к плагину, и обновления его не ломают;
+- ставит скилл `relate-figma-bridge` в `~/.claude/skills` (Claude Code) и `~/.agents/skills` (Codex, Cursor, Copilot, Gemini CLI, OpenCode);
+- дописывает в общие инструкции агентов (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`) короткое правило: если официальный Figma MCP недоступен или просят мост, работать через мост. Без этого шага: `--no-rule`.
+
+Потом от тебя один раз: в настольной Figma Plugins → Development → Import plugin from manifest… и файл `plugin/manifest.json` из папки моста. Команда напечатает точный путь. В браузерной Figma плагины разработчика не запускаются. После этого открой новую сессию агента, чтобы он увидел скилл.
+
+Обновиться: запустить ту же команду ещё раз. Удалить: папку моста, папки `relate-figma-bridge` в `~/.claude/skills` и `~/.agents/skills`, и блок между метками `relate-figma-bridge:start` и `end` в инструкциях.
+
+### Правило в конкретный проект
+
+Чтобы правило лежало в инструкциях проекта и работало у всех, кто его открывает, запусти из папки проекта:
+
+```bash
+npx -y github:relatetest/figma-bridge --project .
+```
+
+Команда допишет блок в `AGENTS.md` проекта и в `CLAUDE.md`. Если `CLAUDE.md` нет, создаст его с одной строкой `@AGENTS.md`. Повторный запуск обновляет блок на месте, `--dry-run` показывает, что изменится. Можно и просто сказать агенту «пропиши figma-bridge в этот проект».
+
+### Для студии: каталог relate
+
+Внутри Relate плагин ставится и из каталога [relatetest/hub](https://github.com/relatetest/hub):
 
 ```bash
 claude plugin install figma-bridge@relate
 ```
 
-Codex, Cursor и другие агенты:
+## Для агента
 
-```bash
-npx skills add relatetest/figma-bridge@v0.1.0 -g -a codex --copy
-```
+Steps for an AI agent asked to install this. Run them yourself; the person only clicks in Figma.
 
-Без `-g` скилл встанет только в текущий проект.
-
-### 2. Мост и плагин в Figma
-
-При первой просьбе про Figma агент сам запустит установщик. Он кладёт мост в одну постоянную папку: `~/.relate/figma-bridge` на Mac, `C:\Users\<ты>\.relate\figma-bridge` на Windows (другую можно задать переменной `RELATE_FIGMA_BRIDGE`). Постоянная папка нужна потому, что Figma запоминает путь к плагину: обновления скилла меняют только файлы внутри неё.
-
-От тебя один раз: Figma → Plugins → Development → Import plugin from manifest… и файл `plugin/manifest.json` из этой папки. Агент назовёт точный путь. Для Dev Mode так же импортируй `plugin-dev/manifest.json`.
-
-### 3. Правило в проект или в агента
-
-Скилл подхватывается по описанию. Если хочешь, чтобы правило «Figma MCP недоступен или просят мост, значит работаем через мост» всегда лежало в инструкциях, попроси агента «пропиши figma-bridge в этот проект» или запусти из папки проекта:
-
-```bash
-node ~/.relate/figma-bridge/install.mjs --project .
-```
-
-Команда допишет короткий блок в `AGENTS.md` проекта (его читают Codex, Cursor и другие) и в `CLAUDE.md`. Если `CLAUDE.md` нет, создаст его с одной строкой `@AGENTS.md`. Флаг `--global` пишет то же в твои общие инструкции: `~/.claude/CLAUDE.md` и `~/.codex/AGENTS.md`. Флаг `--remove` убирает блок, `--dry-run` показывает, что изменится. Блок стоит между метками `relate-figma-bridge:start` и `end`, повторный запуск обновляет его на месте. На Windows в PowerShell пиши полный путь: `node $HOME\.relate\figma-bridge\install.mjs --project .`
+1. Check `node -v`. If Node.js is missing or older than 18, ask the person to install the LTS from https://nodejs.org (or install it with `winget install OpenJS.NodeJS.LTS` on Windows, `brew install node` on macOS, if they allow it), then continue.
+2. Run `npx -y github:relatetest/figma-bridge`. Add `--project <dir>` if the person wants the rule in a project. If `npx` cannot fetch from GitHub (no git), download https://github.com/relatetest/figma-bridge/archive/refs/heads/main.zip, unpack it to a temporary folder and run `node <folder>/scripts/quick-install.mjs` with the same flags.
+3. Read the JSON it prints. Tell the person, in their language, the one click left: Figma desktop → Plugins → Development → Import plugin from manifest… → the `manifest` path. Never click in their Figma yourself.
+4. Tell the person to start a new agent session so the `relate-figma-bridge` skill loads. From then on, follow that skill for any Figma work.
 
 ## Как пользоваться
 
@@ -72,8 +83,8 @@ node ~/.relate/figma-bridge/install.mjs --project .
 ## Как устроено
 
 - Один скилл `relate-figma-bridge`. Сам мост лежит в `skills/relate-figma-bridge/assets/bridge/`: `server.js`, `fig.js` и плагин для Figma. Установщик `skills/relate-figma-bridge/scripts/install.mjs` копирует его в папку моста и пишет туда `AGENTS.md`, ту же инструкцию для агентов без скиллов.
-- Сеть. Сервер слушает только `127.0.0.1:3055` и `::1:3055`, наружу не ходит. Манифест плагина разрешает только `localhost:3055`. Агент обращается к серверу с токеном из `.token`, новым при каждом запуске. Плагин сервер узнаёт по origin окна плагина Figma, запросы с сайтов получают 403. Ничего не скачивается и не отправляется в интернет.
-- Что пишет на диск. Папку моста (`~/.relate/figma-bridge` или `RELATE_FIGMA_BRIDGE`) и экспорты в `shots/` внутри неё или в папку из `--out`. В `AGENTS.md` и `CLAUDE.md` установщик пишет только с флагами `--project` и `--global`.
+- Сеть. Сервер слушает только `127.0.0.1:3055` и `::1:3055`, наружу не ходит. Манифест плагина разрешает только `localhost:3055`. Агент обращается к серверу с токеном из `.token`, новым при каждом запуске. Плагин сервер узнаёт по origin окна плагина Figma, запросы с сайтов получают 403. Во время работы ничего не скачивается и не отправляется в интернет; из сети приходит только сам репозиторий, когда ты запускаешь `npx`.
+- Что пишет на диск. Папку моста (`~/.relate/figma-bridge` или `RELATE_FIGMA_BRIDGE`) и экспорты в `shots/` внутри неё или в папку из `--out`. Команда `npx` ещё копирует скилл в `~/.claude/skills` и `~/.agents/skills` и пишет блок правила в `~/.claude/CLAUDE.md` и `~/.codex/AGENTS.md`, если не указан `--no-rule`. Сам установщик скилла трогает `AGENTS.md` и `CLAUDE.md` только с флагами `--project` и `--global`, и только между метками `relate-figma-bridge:start` и `end`.
 - Код агента выполняется внутри плагина в Figma с правами обычного плагина разработчика: читать и менять открытый файл, библиотеки команды, которые включены в этом файле.
 - Без хуков, MCP-серверов и `allowed-tools`.
 

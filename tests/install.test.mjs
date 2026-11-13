@@ -95,6 +95,45 @@ test('--project writes into an existing CLAUDE.md that does not import AGENTS.md
   assert.ok(readFileSync(path.join(project, 'CLAUDE.md'), 'utf8').includes('relate-figma-bridge:start'));
 });
 
+test('the one-liner installs bridge, skills for both agent folders and the global rule', async (t) => {
+  const fakeHome = tmp('user');
+  t.after(() => rmSync(fakeHome, { recursive: true, force: true }));
+  // os.homedir() reads HOME on macOS/Linux and USERPROFILE on Windows; the person's real folders stay untouched.
+  const env = { HOME: fakeHome, USERPROFILE: fakeHome, RELATE_FIGMA_BRIDGE: '' };
+  const { mkdirSync } = await import('node:fs');
+  mkdirSync(path.join(fakeHome, '.claude'));
+  mkdirSync(path.join(fakeHome, '.codex'));
+  writeFileSync(path.join(fakeHome, '.claude', 'CLAUDE.md'), '# Mine\n');
+
+  const r = await run(path.join(ROOT, 'scripts', 'quick-install.mjs'), [], env);
+  assert.equal(r.code, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.home, path.join(fakeHome, '.relate', 'figma-bridge'));
+  assert.ok(existsSync(path.join(out.home, 'fig.js')));
+  for (const base of [['.claude', 'skills'], ['.agents', 'skills']]) {
+    const skill = path.join(fakeHome, ...base, 'relate-figma-bridge');
+    assert.ok(existsSync(path.join(skill, 'SKILL.md')), `${skill} has no SKILL.md`);
+    assert.ok(existsSync(path.join(skill, 'scripts', 'install.mjs')));
+    assert.ok(existsSync(path.join(skill, 'assets', 'bridge', 'server.js')));
+  }
+  const claude = readFileSync(path.join(fakeHome, '.claude', 'CLAUDE.md'), 'utf8');
+  assert.ok(claude.startsWith('# Mine\n') && claude.includes('relate-figma-bridge:start'));
+  assert.ok(readFileSync(path.join(fakeHome, '.codex', 'AGENTS.md'), 'utf8').includes('relate-figma-bridge:start'));
+  assert.ok(r.stderr.includes('Import plugin from manifest'));
+
+  // A skill copied by the one-liner can install the bridge by itself, as an agent would.
+  const copy = path.join(fakeHome, '.agents', 'skills', 'relate-figma-bridge', 'scripts', 'install.mjs');
+  const again = await run(copy, [], { ...env, RELATE_FIGMA_BRIDGE: path.join(fakeHome, 'other') });
+  assert.equal(again.code, 0, again.stderr);
+  assert.ok(existsSync(path.join(fakeHome, 'other', 'server.js')));
+
+  const second = await run(path.join(ROOT, 'scripts', 'quick-install.mjs'), ['--no-rule'], env);
+  const s = JSON.parse(second.stdout);
+  assert.deepEqual(s.changed, []);
+  assert.deepEqual(s.instructions, []);
+  assert.ok(s.skills.every((x) => x.action === 'unchanged'));
+});
+
 test('bad usage exits with 2', async () => {
   assert.equal((await run(INSTALL, ['--nope'])).code, 2);
   assert.equal((await run(INSTALL, ['--remove'])).code, 2);

@@ -7,10 +7,12 @@
 //   node install.mjs --where           print the same JSON, change nothing
 //   node install.mjs --project <dir>   also put the rule into <dir>/AGENTS.md (and CLAUDE.md)
 //   node install.mjs --global          also put the rule into ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
+//   node install.mjs --skills          also copy this skill to ~/.claude/skills and ~/.agents/skills
 //   node install.mjs --project . --remove   take the rule out again (same for --global)
 //   node install.mjs --dry-run         say what would change, write nothing
 //
-// Why one fixed folder ($RELATE_FIGMA_BRIDGE, else ~/.relate/figma-bridge): Figma remembers the path
+// ~/.claude/skills is read by Claude Code (and Cursor); ~/.agents/skills by Codex, Cursor, Copilot,
+// Gemini CLI and OpenCode. Why one fixed folder ($RELATE_FIGMA_BRIDGE, else ~/.relate/figma-bridge): Figma remembers the path
 // of an imported manifest. A copy inside a versioned plugin cache would break the import on every update.
 // Data goes to stdout as JSON, messages for people to stderr in Russian.
 // Exit codes: 0 done, 1 failed, 2 usage.
@@ -29,16 +31,17 @@ const END = '<!-- relate-figma-bridge:end -->';
 
 const say = (msg) => process.stderr.write(msg + '\n');
 function usage(msg) {
-  say(`✗ ${msg}\nКоманды: node install.mjs [--where] [--project <папка>] [--global] [--remove] [--dry-run]`);
+  say(`✗ ${msg}\nКоманды: node install.mjs [--where] [--skills] [--project <папка>] [--global] [--remove] [--dry-run]`);
   process.exit(2);
 }
 
 // ---------- arguments ----------
 const argv = process.argv.slice(2);
-const opts = { where: false, global: false, remove: false, dryRun: false, project: null };
+const opts = { where: false, global: false, skills: false, remove: false, dryRun: false, project: null };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--where') opts.where = true;
+  else if (a === '--skills') opts.skills = true;
   else if (a === '--global') opts.global = true;
   else if (a === '--remove') opts.remove = true;
   else if (a === '--dry-run') opts.dryRun = true;
@@ -46,7 +49,7 @@ for (let i = 0; i < argv.length; i++) {
     opts.project = argv[++i];
     if (!opts.project) usage('--project ждёт путь к папке проекта');
   } else if (a === '--help' || a === '-h') {
-    say(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 17).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+    say(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 20).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
     process.exit(0);
   } else usage(`неизвестный флаг ${a}`);
 }
@@ -79,7 +82,9 @@ function walk(dir, base = dir) {
 function agentGuide(home) {
   const body = readFileSync(SKILL_MD, 'utf8').replace(/^---[\s\S]*?\n---\n/, '');
   return `<!-- Written by install.mjs from the relate-figma-bridge skill v${skillVersion}. Do not edit: the next install overwrites it. -->\n`
-    + body.split('${CLAUDE_SKILL_DIR}/scripts/install.mjs').join(path.join(home, 'install.mjs'));
+    + body
+      .split('Outside Claude Code, `${CLAUDE_SKILL_DIR}` is the folder that holds this SKILL.md. ').join('')
+      .split('${CLAUDE_SKILL_DIR}/scripts/install.mjs').join(path.join(home, 'install.mjs'));
 }
 
 // Every file the home folder must hold, with its exact content.
@@ -117,6 +122,28 @@ function installBridge() {
     chmodSync(path.join(HOME, 'Start Bridge.command'), 0o755);
   }
   return { changed, skipped: false };
+}
+
+// ---------- the skill for agents ----------
+// The whole skill folder (SKILL.md, scripts/, assets/) so that a copied skill can install the bridge itself.
+function installSkills() {
+  const src = path.resolve(HERE, '..');
+  const name = path.basename(src);
+  const targets = [path.join(os.homedir(), '.claude', 'skills', name), path.join(os.homedir(), '.agents', 'skills', name)];
+  return targets.map((dst) => {
+    if (path.resolve(dst) === src) return { dir: dst, action: 'this copy' };
+    let changed = 0;
+    for (const rel of walk(src)) {
+      const data = readFileSync(path.join(src, rel));
+      const file = path.join(dst, rel);
+      if (existsSync(file) && readFileSync(file).equals(data)) continue;
+      changed++;
+      if (opts.dryRun) continue;
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, data);
+    }
+    return { dir: dst, action: changed ? `${changed} file(s) written` : 'unchanged' };
+  });
 }
 
 // ---------- the routing rule ----------
@@ -193,6 +220,7 @@ function globalRules() {
 // ---------- run ----------
 try {
   const install = opts.where ? { changed: [], skipped: true } : installBridge();
+  const skills = opts.skills && !opts.where ? installSkills() : [];
   const instructions = [];
   if (opts.project) instructions.push(...projectRules(opts.project));
   if (opts.global) instructions.push(...globalRules());
@@ -208,6 +236,7 @@ try {
     manifest: path.join(HOME, 'plugin', 'manifest.json'),
     devManifest: path.join(HOME, 'plugin-dev', 'manifest.json'),
     changed: install.changed,
+    skills,
     instructions,
     dryRun: opts.dryRun,
   };
@@ -224,6 +253,7 @@ try {
       if (install.changed.some((f) => f.startsWith('plugin'))) say('Код плагина обновился: закрой и открой плагин в Figma.');
     } else say(`Мост уже актуален: ${HOME}.`);
   }
+  for (const s of skills) say(`скилл ${s.dir}: ${s.action}`);
   for (const r of instructions) say(`${r.file}: ${r.action}`);
 } catch (e) {
   say(`✗ ${e.message}`);
