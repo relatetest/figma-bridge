@@ -1,0 +1,18 @@
+{
+  "name": "template-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Relate Studio plugin",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "new": "node scripts/new-skill.mjs",
+    "validate": "node scripts/validate.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/validate.mjs && node scripts/build.mjs --check",
+    "version": "node scripts/build.mjs && git add .claude-plugin README.md .github CHANGELOG.md",
+    "setup": "node scripts/setup.mjs"
+  }
+}

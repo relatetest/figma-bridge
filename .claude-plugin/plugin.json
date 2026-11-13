@@ -1,0 +1,15 @@
+{
+  "name": "template-plugin",
+  "version": "0.1.0",
+  "description": "{{One sentence in English: what the plugin does and for whom}}",
+  "author": {
+    "name": "Relate Studio",
+    "url": "https://relate.studio"
+  },
+  "homepage": "https://github.com/relatetest/template-plugin",
+  "repository": "https://github.com/relatetest/template-plugin",
+  "license": "Proprietary",
+  "keywords": [
+    "relate"
+  ]
+}

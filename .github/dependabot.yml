@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # All action bumps arrive as one PR a month: one PR per action buried the owner in 20+ PRs.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [chore]
+    groups:
+      actions:
+        patterns: ["*"]

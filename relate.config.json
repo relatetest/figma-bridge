@@ -1,0 +1,48 @@
+{
+  "prefix": "relate-",
+  "skillsDir": "skills",
+  "evalsDir": "evals",
+  "repo": "relatetest/template-plugin",
+  "hub": "relatetest/hub",
+  "maintainers": "@relatetest/maintainers",
+  "plugin": {
+    "name": "template-plugin",
+    "description": "{{One sentence in English: what the plugin does and for whom}}",
+    "author": {
+      "name": "Relate Studio",
+      "url": "https://relate.studio"
+    },
+    "homepage": "https://github.com/relatetest/template-plugin",
+    "license": "Proprietary",
+    "keywords": [
+      "relate"
+    ]
+  },
+  "generate": {
+    "pluginJson": true,
+    "codeowners": true,
+    "catalog": true
+  },
+  "statuses": [
+    "experimental",
+    "stable",
+    "deprecated"
+  ],
+  "categories": {
+    "brand": "Бренд и тексты",
+    "design": "Дизайн и интерфейсы",
+    "motion": "Моушн и 3D",
+    "web": "Сайты и код",
+    "process": "Процессы студии",
+    "meta": "Скиллы о скиллах"
+  },
+  "requireRussianTriggers": true,
+  "limits": {
+    "skillMdWarnLines": 300,
+    "skillMdMaxLines": 500,
+    "skillMdWarnBytes": 15000,
+    "skillMdMaxBytes": 20000,
+    "fileWarnBytes": 2097152,
+    "minEvalCases": 2
+  }
+}

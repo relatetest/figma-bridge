@@ -1,0 +1,63 @@
+name: Проблема со скиллом
+description: Скилл не загружается, загружается не к той задаче или даёт не тот результат
+labels: ["skill: bug", "needs-triage"]
+body:
+  - type: input
+    id: skill
+    attributes:
+      label: Скилл
+      placeholder: relate-brand-voice
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Что не так
+      options:
+        - Не загружается, хотя должен
+        - Загружается, хотя не должен
+        - Загружается, но результат не по правилам
+        - Ошибка в скрипте скилла
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Агент
+      options:
+        - Claude Code в терминале
+        - Claude Code в приложении
+        - Codex
+        - Cursor
+        - Другой
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Модель и уровень усилий
+      placeholder: "Opus 5.5, high"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия плагина или коммит
+      description: "Claude Code: /plugin → имя плагина. npx skills: npx skills list"
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Запрос
+      description: Ровно то, что вы написали агенту
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: Что получилось и что ожидали
+    validations:
+      required: true

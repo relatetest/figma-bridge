@@ -1,0 +1,40 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate skills and generated files
+        run: npm run check
+
+      - name: No template placeholders left
+        if: github.repository != 'relatetest/template-plugin'
+        run: |
+          if grep -n '{{' README.md AGENTS.md CHANGELOG.md relate.config.json; then
+            echo "Fill every {{…}} listed above."
+            exit 1
+          fi
+
+      # Pinned so a new CLI release cannot turn main red overnight. Dependabot does not
+      # bump npx pins: raise it by hand, together with the one in evals.yml.
+      - name: Claude Code plugin validator
+        run: npx -y @anthropic-ai/claude-code@2.1.318 plugin validate . --strict

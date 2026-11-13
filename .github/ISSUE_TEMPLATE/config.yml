@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Каталог студии
+    url: https://github.com/relatetest/hub
+    about: "Все плагины и инструменты студии, установка и публикация"

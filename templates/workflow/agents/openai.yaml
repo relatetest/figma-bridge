@@ -1,0 +1,7 @@
+# Codex reads this file; Claude Code ignores it.
+# allow_implicit_invocation: false is the Codex twin of disable-model-invocation: true.
+interface:
+  display_name: "{{title}}"
+  short_description: "{{Одна строка для списка навыков в Codex}}"
+policy:
+  allow_implicit_invocation: false
