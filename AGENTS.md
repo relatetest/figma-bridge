@@ -2,6 +2,32 @@
 
 This repo is a Claude Code plugin by @Piwqust in the Relate Studio org, also installable with `npx skills`. It reaches the team only through the studio catalog `relatetest/hub`, pinned to a release tag.
 
+It lets an agent work live in the person's open Figma file through the relate→←figma development plugin and a local relay. One skill (`relate-figma-bridge`, loads on its own) carries the bridge in `assets/bridge/` and an installer in `scripts/install.mjs` that copies it to one fixed folder per computer (`$RELATE_FIGMA_BRIDGE`, else `~/.relate/figma-bridge`): Figma remembers the manifest path, so the bridge must never run from a versioned plugin cache.
+
+## Commands
+
+```bash
+npm test                     # offline: installer on a temp folder, project rules, server + fig.js with a fake plugin on port 3099
+npm run check                # skill validator + generated files
+claude plugin validate . --strict
+node skills/relate-figma-bridge/scripts/install.mjs --help
+```
+
+## Layout
+
+- `skills/relate-figma-bridge/SKILL.md`: the route (official Figma MCP first, bridge when it is missing, unauthenticated, failing, or asked for) and how to drive the bridge.
+- `skills/relate-figma-bridge/assets/bridge/`: `server.js` (relay on 127.0.0.1:3055), `fig.js` (agent CLI), `plugin/` (Design, FigJam, Slides), `plugin-dev/manifest.json` (Dev Mode twin; `code.js` and `ui.html` are copied in by the installer and by `server.js`). CommonJS, Node built-ins only.
+- `skills/relate-figma-bridge/scripts/install.mjs`: installs or updates the bridge folder, writes the routing rule with `--project` / `--global`.
+- `tests/`: `node:test` suites, no Figma.
+
+## Bridge rules
+
+- **Never drive the person's Figma from a test or a check.** They may be working in it; tests use `FIGMA_BRIDGE_PORT=3099`, a temp `RELATE_FIGMA_BRIDGE` and a fake plugin.
+- **Edit the bridge only in `assets/bridge/plugin/`;** `plugin-dev/` gets copies. Figma forbids `dev` and `figjam` in one manifest, which is why there are two plugins.
+- **Keep the manifest ids `claude-bridge-local` and `claude-bridge-local-dev`:** a new id makes Figma treat it as a different plugin and everyone re-imports.
+- **The plugin reaches only `localhost:3055`; the server listens only on loopback and checks the token or the plugin origin.** Any change to that goes into "Как устроено" in README.md in the same commit.
+- **The installer touches AGENTS.md / CLAUDE.md only with `--project` / `--global`,** only between the `relate-figma-bridge:start/end` markers.
+
 ## Rules
 
 - **Before creating, editing or reviewing a skill, load `relate-writing-skills`** (from the `relate` plugin in `relatetest/hub`) and follow it. The full guideline is `relatetest/skills/docs/guideline.md`.

@@ -7,7 +7,7 @@
   "maintainers": "@Piwqust",
   "plugin": {
     "name": "figma-bridge",
-    "description": "{{One sentence in English: what the plugin does and for whom}}",
+    "description": "Lets an AI agent work live in an open Figma file through the local relate→←figma plugin and bridge, on macOS and Windows, without the Figma MCP.",
     "author": {
       "name": "Relate Studio",
       "url": "https://relate.studio"
@@ -15,7 +15,11 @@
     "homepage": "https://github.com/relatetest/figma-bridge",
     "license": "Proprietary",
     "keywords": [
-      "relate"
+      "relate",
+      "figma",
+      "figjam",
+      "bridge",
+      "design"
     ]
   },
   "generate": {

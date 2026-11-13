@@ -1,0 +1,14 @@
+{
+  "name": "relate→←figma",
+  "id": "claude-bridge-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma", "figjam", "slides"],
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser", "teamlibrary"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:3055"]
+  }
+}

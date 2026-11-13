@@ -13,6 +13,7 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/validate.mjs && node scripts/build.mjs --check",
     "version": "node scripts/build.mjs && git add .claude-plugin README.md .github CHANGELOG.md",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\""
   }
 }

@@ -1,0 +1,15 @@
+{
+  "name": "relate→←figma · dev",
+  "id": "claude-bridge-local-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["dev"],
+  "capabilities": ["inspect"],
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser", "teamlibrary"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:3055"]
+  }
+}

@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="ru">
+<!-- relate→←figma: the plugin window. Single file, no external scripts: the plugin may reach only localhost:3055. -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* relate→←figma, «Курсор»: "стрелка как курсор" from the visual concept. A live map of the page; the agent is the brand
+     arrow flying to the frame it works on, with a trail like the moodboard's cursor trail and a name tag like
+     a Figma multiplayer cursor. Your selection is the counter-arrow; when the agent works on it, they meet. */
+  :root {
+    --bg: oklch(0 0 0);
+    --fg: oklch(1 0 0);
+    --fg-2: oklch(1 0 0 / 0.62);
+    --fg-3: oklch(1 0 0 / 0.5);
+    --line: oklch(0.24 0 0);
+    --raise: oklch(0.16 0 0);
+    --card: oklch(1 0 0);
+    --card-fg: oklch(0 0 0);
+    --frame: oklch(0.16 0 0);
+    --frame-hot: oklch(0.3 0 0);
+    --font: "NB International", "NB International Pro", "Inter Tight", "Inter Display", Inter, system-ui, sans-serif;
+    --mono: "NB International Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --ease-brand: cubic-bezier(0.3, 0, 0, 1);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; display: flex; flex-direction: column;
+    background: var(--bg); color: var(--fg);
+    font: 400 13px/1.35 var(--font); letter-spacing: -0.01em;
+    font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+  }
+  button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .top { flex: none; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px 0 16px; font-size: 12px; }
+  .top .file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-2); }
+  .top .ro { display: none; color: var(--fg); white-space: nowrap; }
+  body.readonly .top .ro { display: inline; }
+  .icon-btn { position: relative; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 3px; color: var(--fg-2); transition: color 150ms ease-out, background-color 150ms ease-out; }
+  .icon-btn::before { content: ""; position: absolute; inset: -6px; }
+  @media (hover: hover) and (pointer: fine) { .icon-btn:hover { color: var(--fg); background: var(--raise); } }
+  .icon-btn:active { scale: 0.96; }
+  .icon-btn svg { transition: rotate 200ms var(--ease-brand); }
+  body.compact .fold svg { rotate: 180deg; }
+  body.readonly .fold { display: none; }
+
+  /* ---------- the map ---------- */
+  .map { position: relative; flex: 1; min-height: 0; overflow: hidden;
+    background-image: radial-gradient(circle at 1px 1px, oklch(1 0 0 / 0.08) 1px, transparent 1.2px); background-size: 12px 12px; }
+  .frames { position: absolute; inset: 0; transition: opacity 400ms ease-out; }
+  [data-state="offline"] .frames { opacity: 0.25; }
+  .frame { position: absolute; border-radius: 1px; background: var(--frame); transition: background-color 400ms ease-out, box-shadow 200ms ease-out; }
+  .frame.hot { background: var(--frame-hot); }
+  .frame.on { box-shadow: 0 0 0 1.5px var(--fg); }
+  .frame.sel { box-shadow: 0 0 0 1px var(--fg-3); }
+  [data-state="error"] .frame.on { box-shadow: none; outline: 1.5px dashed var(--fg); outline-offset: 1px; }
+
+  .cursor { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; transform: translate(var(--x, 150px), var(--y, 120px)); transition: transform 760ms var(--ease-brand), opacity 300ms ease-out; }
+  .cursor svg { position: absolute; left: -22px; top: -10.5px; width: 22px; height: 21px; transform-origin: 22px 10.5px; rotate: 45deg; overflow: visible; }
+  .cursor.me svg { rotate: 225deg; }
+  .cursor path { fill: var(--fg); }
+  .cursor.me path { fill: none; stroke: var(--fg); stroke-width: 22; }
+  /* Placed by JS (placeTag) wherever there is room: behind the arrow first, ahead of it otherwise. */
+  .tag {
+    position: absolute; left: var(--tl, 12px); top: var(--tt, 12px); max-width: 196px; padding: 5px 8px 6px; border-radius: 3px;
+    background: var(--card); color: var(--card-fg); font-size: 12px; line-height: 1.2; white-space: nowrap;
+  }
+  .cursor.me .tag { background: var(--bg); color: var(--fg-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .tag b { display: block; font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+  .tag small { display: block; margin-top: 1px; font-size: 11px; color: oklch(0 0 0 / 0.55); overflow: hidden; text-overflow: ellipsis; }
+  .tag .track { height: 2px; margin-top: 5px; background: oklch(0 0 0 / 0.12); overflow: hidden; display: none; }
+  .tag .track i { display: block; height: 100%; background: var(--card-fg); transform-origin: left; transform: scaleX(0); transition: transform 300ms var(--ease-brand); }
+  .tag .track.indef i { width: 30%; transform: none; animation: slide 1.2s var(--ease-brand) infinite; }
+  [data-state="working"] .agent .tag .track { display: block; }
+  [data-state="error"] .agent .tag { background: var(--bg); color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); cursor: pointer; pointer-events: auto; }
+  [data-state="error"] .agent .tag small { color: var(--fg-2); }
+  [data-state="waiting"] .agent, [data-state="connecting"] .agent { opacity: 0.55; }
+  [data-state="connecting"] .agent svg { animation: blink 0.8s ease-in-out infinite alternate; }
+  [data-state="offline"] .agent, [data-state="offline"] .me { opacity: 0; }
+  [data-state="error"] .agent svg { animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+  .agent .tag { pointer-events: none; }
+  .ghost { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; animation: ghost 900ms ease-out forwards; }
+  .ghost svg { position: absolute; left: -22px; top: -10.5px; width: 22px; height: 21px; transform-origin: 22px 10.5px; rotate: 45deg; }
+  .ghost path { fill: var(--fg); }
+  .ring { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--fg); animation: ring 700ms var(--ease-out) forwards; pointer-events: none; }
+  @keyframes ghost { from { opacity: var(--o, 0.4); } to { opacity: 0; } }
+  @keyframes ring { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+  @keyframes blink { to { opacity: 0.2; } }
+  @keyframes shake { 20%, 60% { translate: -4px 0; } 40%, 80% { translate: 4px 0; } }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+
+  .offline-card { position: absolute; left: 50%; top: 50%; width: 220px; translate: -50% -50%; rotate: -2deg; padding: 12px; border-radius: 3px; background: var(--card); color: var(--card-fg); display: none; flex-direction: column; gap: 8px; z-index: 4; }
+  [data-state="offline"] .offline-card { display: flex; animation: deal 420ms var(--ease-out); }
+  .offline-card .hd { font-size: 12px; color: oklch(0 0 0 / 0.58); }
+  .offline-card .lb { font-size: 15px; line-height: 1.2; letter-spacing: -0.02em; }
+  .act { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 3px; background: var(--card-fg); color: var(--card); font-size: 12px; transition: scale 150ms ease-out; }
+  .act:active { scale: 0.96; }
+  .act code { flex: 1; min-width: 0; text-align: start; font: 11.5px/1 var(--mono); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @keyframes deal { from { opacity: 0; transform: translateY(16px) rotate(4deg); } }
+
+  /* ---------- status ---------- */
+  .foot { flex: none; padding: 12px 8px 12px 16px; border-top: 1px solid var(--line); }
+  .word { margin: 0; font-size: 26px; line-height: 1; letter-spacing: -0.04em; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .word .timer { color: var(--fg-3); font-size: 18px; letter-spacing: -0.02em; }
+  .row2 { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .sub { flex: 1; min-width: 0; font-size: 12px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logbtn { position: relative; height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 3px; font-size: 12px; white-space: nowrap; transition: background-color 150ms ease-out; }
+  @media (hover: hover) and (pointer: fine) { .logbtn:hover { background: var(--raise); } }
+  .logbtn .n { color: var(--fg-3); }
+
+  /* ---------- compact ---------- */
+  body.compact { flex-direction: row; align-items: center; }
+  body.compact .map, body.compact .row2, body.compact .top .file, body.compact .top .ro { display: none; }
+  body.compact .foot { order: -1; flex: 1; min-width: 0; border: 0; padding: 0 0 0 16px; }
+  body.compact .word { font-size: 20px; }
+  body.compact .top { height: 64px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body data-state="connecting">
+<header class="top">
+  <span class="file" id="file">файл не открыт</span>
+  <span class="ro">только чтение</span>
+  <button class="icon-btn fold" id="fold" aria-label="Свернуть окно"></button>
+</header>
+
+<main class="map" id="map" aria-label="Карта страницы: где сейчас работает агент">
+  <div class="frames" id="frames"></div>
+  <div class="cursor me" id="me" hidden><svg viewBox="0 0 336 322" aria-hidden="true"><path id="pMe"/></svg><span class="tag" id="meTag">ты</span></div>
+  <div class="cursor agent" id="agent"><svg viewBox="0 0 336 322" aria-hidden="true"><path id="pAgent"/></svg>
+    <span class="tag" id="tag"><b id="tagB">агент</b><small id="tagS"></small><span class="track" id="track"><i></i></span></span></div>
+  <div class="offline-card"><div class="hd">сервер не запущен</div><div class="lb">Запусти его в терминале, плагин подключится сам</div><button class="act" id="copy"></button></div>
+</main>
+
+<footer class="foot">
+  <h1 class="word"><span id="word" aria-live="polite">подключаюсь</span> <span class="timer num" id="timer"></span></h1>
+  <div class="row2"><span class="sub" id="sub"></span><button class="logbtn" id="openLog">журнал <span class="n num" id="logN">0</span></button></div>
+</footer>
+
+<script>
+// Shared bits for the round-3 views: the log sheet, plural forms, icons, the copy-command button.
+// The sheet takes its colours from the variant's CSS variables (--bg, --fg, --fg-3, --line, --raise, --card, --card-fg).
+window.Kit = (() => {
+  const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+  const ICON = {
+    copy: '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="4.5" width="7.5" height="7.5" rx="1.5"/><path d="M9.5 2.5H3.6A1.1 1.1 0 0 0 2.5 3.6v5.9"/></svg>',
+    close: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9"/></svg>',
+    fold: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5 6 4.5l3 3"/></svg>',
+  };
+  // One arrow of the →← mark (the left one, pointing right), from the logo's own outlines. 336 × 322.
+  const ARROW = 'M173.558 0.892438L141.005 33.4451C139.815 34.635 139.815 36.5049 141.005 37.6948L233.308 129.999C235.178 131.868 233.818 135.098 231.184 135.098H2.97459C1.3597 135.098 0 136.458 0 138.073V184.055C0 185.67 1.3597 187.03 2.97459 187.03H230.844C233.479 187.03 234.839 190.259 232.969 192.129L140.92 284.178C139.73 285.368 139.73 287.238 140.92 288.427L173.473 320.98C174.663 322.17 176.533 322.17 177.723 320.98L300.964 197.739L335.642 163.061C336.832 161.871 336.832 160.001 335.642 158.811L177.723 0.892438C176.533 -0.297479 174.663 -0.297479 173.473 0.892438H173.558Z';
+
+  const CSS = `
+  .kit-sheet { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--bg); color: var(--fg);
+    opacity: 0; visibility: hidden; transition: opacity 160ms ease-in, visibility 0s linear 160ms; }
+  .kit-sheet[data-open] { opacity: 1; visibility: visible; transition: opacity 200ms ease-out, visibility 0s; }
+  .kit-sheet-h { flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 14px 8px 12px 16px; }
+  .kit-sheet-h h2 { flex: 1; margin: 0; font-size: 46px; line-height: 0.92; letter-spacing: -0.045em; font-weight: 400; }
+  .kit-sheet-h .n { font-size: 12px; color: var(--fg-3); padding-bottom: 6px; font-variant-numeric: tabular-nums; }
+  .kit-x { position: relative; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 3px; color: var(--fg-3); transition: color 150ms ease-out, background-color 150ms ease-out; }
+  .kit-x::before { content: ""; position: absolute; inset: -6px; }
+  @media (hover: hover) and (pointer: fine) { .kit-x:hover { color: var(--fg); background: var(--raise); } }
+  .kit-sheet ol { list-style: none; margin: 0; padding: 0 0 12px; overflow-y: auto; flex: 1; }
+  .kit-sheet ol::-webkit-scrollbar { width: 6px; }
+  .kit-sheet ol::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+  .kit-sheet[data-open] li { animation: kit-in 320ms cubic-bezier(0.23, 1, 0.32, 1) both; animation-delay: calc(var(--i, 0) * 24ms); }
+  @keyframes kit-in { from { opacity: 0; transform: translateY(8px); } }
+  .kit-row { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; align-items: baseline; gap: 8px; min-height: 36px; padding: 9px 16px; border-top: 1px solid var(--line); text-align: start; font-size: 13px; }
+  @media (hover: hover) and (pointer: fine) { button.kit-row:hover { background: var(--raise); } }
+  .kit-row .i, .kit-row .ms { color: var(--fg-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .kit-row .lb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kit-sheet li.err .ms { color: var(--fg); }
+  .kit-sheet li.run .ms::after { content: "…"; }
+  .kit-det { display: none; margin: 0 16px 10px 52px; padding: 8px 10px; border-radius: 3px; background: var(--card); color: var(--card-fg); font: 11.5px/1.45 var(--mono); letter-spacing: 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+  .kit-sheet li.open .kit-det { display: block; }
+  .kit-empty { padding: 8px 16px; color: var(--fg-3); text-wrap: balance; }
+  @media (prefers-reduced-motion: reduce) { .kit-sheet, .kit-sheet li { animation: none !important; transition: none !important; } }`;
+
+  function journal(opener) {
+    const style = document.createElement('style');
+    style.textContent = CSS;
+    document.head.append(style);
+    const sheet = document.createElement('section');
+    sheet.className = 'kit-sheet';
+    sheet.id = 'kitSheet';
+    sheet.setAttribute('aria-label', 'Журнал команд');
+    sheet.innerHTML = `<div class="kit-sheet-h"><h2>журнал</h2><span class="n"></span><button class="kit-x" aria-label="Закрыть журнал">${ICON.close}</button></div>
+      <ol><li class="kit-empty">Здесь будут все команды агента за сессию: что он делал и сколько это заняло</li></ol>`;
+    document.body.append(sheet);
+    const list = sheet.querySelector('ol');
+    const rows = new Map();
+    let index = 0;
+
+    function setOpen(on, focusId) {
+      sheet.toggleAttribute('data-open', on);
+      if (opener) opener.setAttribute('aria-expanded', String(on));
+      [...list.children].forEach((li, i) => li.style.setProperty('--i', Math.min(i, 12)));
+      if (on) {
+        const li = focusId && rows.get(focusId);
+        if (li && li.classList.contains('err')) { li.classList.add('open'); li.querySelector('.kit-row').setAttribute('aria-expanded', 'true'); }
+        sheet.querySelector('.kit-x').focus();
+      } else if (opener) opener.focus();
+    }
+    sheet.querySelector('.kit-x').onclick = () => setOpen(false);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.hasAttribute('data-open')) setOpen(false); });
+    if (opener) { opener.setAttribute('aria-controls', 'kitSheet'); opener.setAttribute('aria-expanded', 'false'); opener.addEventListener('click', () => setOpen(true)); }
+
+    return {
+      open: (id) => setOpen(true, id),
+      close: () => setOpen(false),
+      get count() { return index; },
+      add(e) {
+        const empty = list.querySelector('.kit-empty');
+        if (empty) empty.remove();
+        index += 1;
+        const li = document.createElement('li');
+        li.className = 'run';
+        li.innerHTML = '<div class="kit-row"><span class="i"></span><span class="lb"></span><span class="ms"></span></div><div class="kit-det"></div>';
+        li.querySelector('.i').textContent = String(index).padStart(2, '0');
+        li.querySelector('.lb').textContent = e.label;
+        li.querySelector('.lb').title = e.label + ' · ' + e.at.toLocaleTimeString('ru');
+        list.prepend(li);
+        rows.set(e.id, li);
+        while (list.children.length > 40) list.lastElementChild.remove();
+        sheet.querySelector('.n').textContent = index + ' ' + plural(index, 'команда', 'команды', 'команд');
+        return index;
+      },
+      update(e) {
+        const li = rows.get(e.id);
+        if (!li) return;
+        li.className = e.status;
+        li.querySelector('.ms').textContent = e.status === 'err' ? 'ошибка' : Relay.fmtMs(e.ms);
+        if (e.status !== 'err') return;
+        const old = li.querySelector('.kit-row');
+        const btn = document.createElement('button');
+        btn.className = 'kit-row';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.innerHTML = old.innerHTML;
+        old.replaceWith(btn);
+        li.querySelector('.kit-det').textContent = e.error;
+        btn.onclick = () => { const open = li.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); };
+      },
+    };
+  }
+
+  // A button that copies the server command and says so for a moment.
+  function copyButton(btn, idle) {
+    btn.innerHTML = idle;
+    btn.setAttribute('aria-label', 'Скопировать команду запуска сервера');
+    btn.onclick = async () => {
+      await Relay.copyCommand();
+      btn.innerHTML = '<span>скопировано</span>';
+      setTimeout(() => { btn.innerHTML = idle; }, 1500);
+    };
+  }
+
+  return { plural, ICON, ARROW, journal, copyButton };
+})();
+</script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  $('fold').innerHTML = Kit.ICON.fold;
+  $('pAgent').setAttribute('d', Kit.ARROW);
+  $('pMe').setAttribute('d', Kit.ARROW);
+  Kit.copyButton($('copy'), '<code>node …/server.js</code>' + Kit.ICON.copy);
+  const J = Kit.journal($('openLog'));
+
+  let frames = [];          // page frames from code.js
+  let selBox = null;        // the designer's selection, page coords
+  const heat = new Map();   // frame id → commands that touched it
+  const touch = new Map();  // job id → box it touched
+  let view = { s: 1, ox: 0, oy: 0 };
+  let agentAt = null;       // stage point the agent arrow points at
+  let shown = {};
+
+  // ---------- page → stage ----------
+  function fit() {
+    const W = $('map').clientWidth, H = $('map').clientHeight;
+    if (!W || !H) return;
+    if (!frames.length) { view = { s: 1, ox: W / 2, oy: H / 2 }; return; }
+    const x0 = Math.min(...frames.map((f) => f.x)), y0 = Math.min(...frames.map((f) => f.y));
+    const x1 = Math.max(...frames.map((f) => f.x + f.w)), y1 = Math.max(...frames.map((f) => f.y + f.h));
+    const pad = 22;
+    const s = Math.min((W - pad * 2) / (x1 - x0), (H - pad * 2) / (y1 - y0));
+    view = { s, ox: (W - (x1 - x0) * s) / 2 - x0 * s, oy: (H - (y1 - y0) * s) / 2 - y0 * s };
+    drawFrames();
+    if (agentAt && agentAt.box) moveAgent(agentAt.box, true);
+    placeMe();
+  }
+  const P = (x, y) => ({ x: view.ox + x * view.s, y: view.oy + y * view.s });
+
+  function drawFrames() {
+    const box = $('frames');
+    box.innerHTML = '';
+    for (const f of frames) {
+      const d = document.createElement('div');
+      d.className = 'frame';
+      d.dataset.id = f.id;
+      const a = P(f.x, f.y);
+      Object.assign(d.style, { left: a.x + 'px', top: a.y + 'px', width: Math.max(2, f.w * view.s) + 'px', height: Math.max(2, f.h * view.s) + 'px' });
+      d.title = f.name;
+      box.append(d);
+    }
+    paintFrames();
+  }
+  function paintFrames() {
+    const on = shown.state === 'working' || shown.state === 'done' || shown.state === 'error' ? (touch.get(shown.jobId) || {}).id : null;
+    document.querySelectorAll('.frame').forEach((d) => {
+      d.classList.toggle('hot', (heat.get(d.dataset.id) || 0) > 0);
+      d.classList.toggle('on', d.dataset.id === on);
+      d.classList.toggle('sel', !!selBox && selBox.id === d.dataset.id);
+    });
+  }
+
+  // The arrow comes in from the upper left and points at the upper-left quarter of the frame;
+  // the selection arrow points from the lower right. On the same frame they meet in the middle: ↘↖.
+  function targetFor(b, me) {
+    const meet = !!(selBox && agentAt && agentAt.box && agentAt.box.id && agentAt.box.id === selBox.id);
+    if (meet) {
+      // Both arrows aim at the middle of the selection, one from each side.
+      const c = P(selBox.x + selBox.w / 2, selBox.y + selBox.h / 2);
+      return { x: c.x + (me ? 4 : -4), y: c.y + (me ? 4 : -4) };
+    }
+    const f = me ? 0.62 : 0.38;
+    return P(b.x + b.w * f, b.y + b.h * f);
+  }
+
+  function setPos(el, p) {
+    el.style.setProperty('--x', p.x + 'px'); el.style.setProperty('--y', p.y + 'px');
+    el.dataset.px = p.x; el.dataset.py = p.y;
+    placeTag(el);
+  }
+  // The agent's tag trails behind the arrow (up-left), the selection's tag sits down-right;
+  // either flips when it would leave the map, and never gets wider than the room it has.
+  function placeTag(el) {
+    const tag = el.querySelector('.tag');
+    const W = $('map').clientWidth, H = $('map').clientHeight;
+    const x = Number(el.dataset.px), y = Number(el.dataset.py);
+    if (!tag || Number.isNaN(x)) return;
+    const back = el.id === 'agent';
+    // When the arrows meet, the selection arrow sits just below-right of the agent's tip:
+    // the agent's tag then always goes up, so it never covers the other arrow.
+    const meeting = back && !$('me').hidden && selBox && agentAt && agentAt.box && agentAt.box.id === selBox.id;
+    const roomL = x - 14 - 6, roomR = W - x - 12 - 6;
+    const left = back ? roomL >= Math.min(150, roomR) : roomR < Math.min(150, roomL);
+    tag.style.maxWidth = Math.max(80, Math.min(196, left ? roomL : roomR)) + 'px';
+    const w = tag.offsetWidth, h = tag.offsetHeight;
+    const up = meeting || (back ? y - h - 12 >= 6 : y + 12 + h > H - 6);
+    el.style.setProperty('--tl', (left ? -14 - w : 12) + 'px');
+    el.style.setProperty('--tt', (up ? Math.max(-12 - h, 4 - y) : 12) + 'px');
+  }
+
+  function trail(from, to) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (let i = 1; i <= 5; i++) {
+      const t = i / 6;
+      const g = document.createElement('div');
+      g.className = 'ghost';
+      g.style.transform = `translate(${from.x + (to.x - from.x) * t}px, ${from.y + (to.y - from.y) * t}px)`;
+      g.style.setProperty('--o', (0.12 + t * 0.3).toFixed(2));
+      g.style.animationDelay = i * 70 + 'ms';
+      g.style.opacity = 0;
+      g.innerHTML = `<svg viewBox="0 0 336 322" aria-hidden="true"><path d="${Kit.ARROW}"/></svg>`;
+      $('map').append(g);
+      setTimeout(() => g.remove(), 1400);
+    }
+  }
+
+  function moveAgent(box, instant) {
+    const prev = agentAt ? agentAt.p : null;
+    agentAt = { box, p: null };
+    const p = targetFor(box, false);
+    agentAt.p = p;
+    const el = $('agent');
+    if (instant) { el.style.transition = 'none'; setPos(el, p); void el.offsetWidth; el.style.transition = ''; }
+    else { if (prev) trail(prev, p); setPos(el, p); }
+    placeMe();
+  }
+
+  function placeMe() {
+    const el = $('me');
+    el.hidden = !selBox || !frames.length;
+    if (el.hidden) return;
+    setPos(el, targetFor(selBox, true));
+  }
+
+  function ring() {
+    if (!agentAt || !agentAt.p) return;
+    const r = document.createElement('div');
+    r.className = 'ring';
+    r.style.transform = `translate(${agentAt.p.x}px, ${agentAt.p.y}px)`;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `position:absolute;left:0;top:0;transform:translate(${agentAt.p.x}px,${agentAt.p.y}px);z-index:2`;
+    r.style.transform = '';
+    wrap.append(r);
+    $('map').append(wrap);
+    setTimeout(() => wrap.remove(), 800);
+  }
+
+  // ---------- view ----------
+  window.View = {
+    render(m) {
+      const jobId = (Relay.log()[0] || {}).id;
+      if (m.state !== shown.state || jobId !== shown.jobId) {
+        const was = shown.state;
+        document.body.dataset.state = m.state;
+        shown.state = m.state; shown.jobId = jobId;
+        if (m.state === 'done' && was === 'working') ring();
+        paintFrames();
+      }
+      if ($('word').textContent !== m.title) $('word').textContent = m.title;
+      const timer = m.state === 'working' ? Relay.fmtMs(m.elapsed) : '';
+      if ($('timer').textContent !== timer) $('timer').textContent = timer;
+      const t = touch.get(jobId);
+      let b = 'агент', s = '';
+      if (m.state === 'working') { b = m.label || 'работаю'; s = (t ? t.name : '') + (m.sub !== m.label ? (t ? ' · ' : '') + m.sub : ''); }
+      else if (m.state === 'done') { b = 'готово · ' + Relay.fmtMs(m.elapsed || 0); s = m.label || ''; }
+      else if (m.state === 'error') { b = 'ошибка · подробнее'; s = m.sub; }
+      else if (m.state === 'waiting') b = 'жду команду';
+      else if (m.state === 'connecting') b = 'ищу сервер';
+      if ($('tagB').textContent !== b) $('tagB').textContent = b;
+      if ($('tagS').textContent !== s) { $('tagS').textContent = s; $('tagS').hidden = !s; }
+      const frac = typeof m.fraction === 'number' ? Math.max(0, Math.min(1, m.fraction)) : null;
+      $('track').classList.toggle('indef', frac == null);
+      $('track').firstElementChild.style.transform = frac == null ? '' : `scaleX(${frac})`;
+      const sub = m.state === 'working' || m.state === 'error' ? (t ? 'во фрейме «' + t.name + '»' : m.sub) : m.sub;
+      if ($('sub').textContent !== sub) { $('sub').textContent = sub; $('sub').title = sub; }
+      if (shown.tagKey !== b + s) { shown.tagKey = b + s; placeTag($('agent')); }
+    },
+    message(msg) {
+      if (msg.type === 'touch' && msg.boxes && msg.boxes[0]) {
+        const box = { ...msg.boxes[0], id: msg.ids && msg.ids[0], name: msg.names && msg.names[0] };
+        touch.set(msg.id, box);
+        if (box.id) heat.set(box.id, (heat.get(box.id) || 0) + 1);
+        moveAgent(box, false);
+        paintFrames();
+      }
+    },
+    context(i) {
+      $('file').textContent = (i.file || 'без названия') + (i.page ? ' / ' + i.page : '');
+      $('file').title = $('file').textContent;
+      document.body.classList.toggle('readonly', !!i.readOnly);
+      const sameFrames = JSON.stringify(i.frames || []) === JSON.stringify(frames);
+      frames = i.frames || [];
+      selBox = i.selectionBox || null;
+      $('meTag').textContent = i.selection ? 'выделено · ' + i.selection + ' ' + Kit.plural(i.selection, 'слой', 'слоя', 'слоёв') : 'ты';
+      placeTag($('me'));
+      if (!sameFrames) {
+        fit();
+        if (!agentAt && frames.length) {
+          // Rest the arrow just off the top-left frame until the first command.
+          const f = frames[0];
+          agentAt = { box: { ...f, x: f.x - f.w * 0.1, y: f.y - f.h * 0.1 }, p: null };
+          moveAgent(agentAt.box, true);
+        }
+      }
+      placeMe();
+      paintFrames();
+    },
+    compact(on) {
+      document.body.classList.toggle('compact', on);
+      $('fold').setAttribute('aria-label', on ? 'Развернуть окно' : 'Свернуть окно');
+      if (!on) requestAnimationFrame(fit);
+    },
+    logAdd(e) { $('logN').textContent = J.add(e); },
+    logUpdate(e) { J.update(e); },
+  };
+
+  new ResizeObserver(fit).observe($('map'));
+  $('fold').onclick = () => Relay.toggleCompact();
+  $('tag').addEventListener('click', () => { if (shown.state === 'error') J.open(shown.jobId); });
+</script>
+<script>
+// Shared controller for the relate→←figma plugin window. It talks to the local server, hands jobs to
+// code.js and keeps the state model. A design variant supplies only window.View:
+//   render(model)        status, every 250 ms and on every event (diff inside the view)
+//   logAdd(entry)        a job started          logUpdate(entry)  a job finished
+//   context(info)        file / page / selection / read-only changed
+//   compact(on)          the window was folded or unfolded
+(() => {
+  const PORT = (location.hash.match(/port=(\d+)/) || [])[1] || '3055';
+  const BASE = 'http://localhost:' + PORT;
+  const AGENT_IDLE_MS = 120000;
+  const FLASH_MS = { done: 2200, error: 7000 };
+  const LOG_MAX = 40;
+  // The iframe can't know where the server lives on disk: setup.js and every server start write the path here.
+  const COMMAND = "node server.js";
+
+  const s = { online: null, legacy: false, claudeMsAgo: null, claudeAt: 0, info: null, busy: null, flash: null, jobs: 0, compact: false, log: [] };
+  let finishJob = null;
+  const View = window.View || {};
+  const call = (fn, ...a) => { if (typeof View[fn] === 'function') View[fn](...a); };
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const num = (x, d) => x.toFixed(d).replace('.', ',');
+  const fmtMs = (ms) => (ms < 1000 ? Math.round(ms) + '\u00a0мс' : num(ms / 1000, ms < 10000 ? 1 : 0) + '\u00a0с');
+  const ago = (ms) => (ms < 60000 ? Math.round(ms / 1000) + '\u00a0с' : Math.round(ms / 60000) + '\u00a0мин');
+
+  // text/plain keeps the request "simple", so no CORS preflight is needed.
+  const post = (body) => fetch(BASE + '/result', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+  // The server only needs who and where; the page map stays in the window.
+  const sendHello = () => {
+    if (!s.info || !s.online) return;
+    const { frames, selectionBox, ...info } = s.info;
+    post({ hello: { ...info, frames: frames ? frames.length : 0 } }).catch(() => {});
+  };
+
+  function setOnline(on) {
+    const was = s.online;
+    s.online = on;
+    // A restarted server has forgotten which file is open.
+    if (on && was !== true) sendHello();
+    render();
+  }
+
+  function model() {
+    const now = Date.now();
+    const base = { port: PORT, info: s.info, readOnly: !!(s.info && s.info.readOnly), jobs: s.jobs, compact: s.compact, command: COMMAND };
+    if (s.busy) {
+      return { ...base, state: 'working', title: 'работает', sub: s.busy.text || s.busy.label || 'Выполняю команду', label: s.busy.label, elapsed: now - s.busy.started, fraction: s.busy.fraction };
+    }
+    if (s.flash && now < s.flash.until) {
+      return s.flash.state === 'done'
+        ? { ...base, state: 'done', title: 'готово', sub: s.flash.label || 'Команда выполнена', label: s.flash.label, elapsed: s.flash.ms }
+        : { ...base, state: 'error', title: 'ошибка в команде', sub: s.flash.error, label: s.flash.label, elapsed: s.flash.ms };
+    }
+    if (s.online === null) return { ...base, state: 'connecting', title: 'подключаюсь', sub: 'Ищу сервер на localhost:' + PORT };
+    if (!s.online) return { ...base, state: 'offline', title: 'сервер не запущен', sub: 'Запусти его в терминале, плагин подключится сам' };
+    if (s.legacy) return { ...base, state: 'ready', title: 'сервер на связи', sub: 'Перезапусти server.js, чтобы видеть статус агента' };
+    const since = s.claudeMsAgo == null ? null : s.claudeMsAgo + (now - s.claudeAt);
+    if (since == null) return { ...base, state: 'waiting', title: 'жду агента', sub: 'Сервер на связи, команд пока не было' };
+    if (since > AGENT_IDLE_MS) return { ...base, state: 'waiting', title: 'жду агента', sub: 'Агент молчит ' + ago(since) };
+    return { ...base, state: 'ready', title: 'агент на связи', sub: since < 5000 ? 'Готов к следующей команде' : 'Последняя команда ' + ago(since) + ' назад' };
+  }
+
+  function render() { call('render', model()); }
+
+  // ---------- networking ----------
+  async function jobLoop() {
+    for (;;) {
+      try {
+        const r = await fetch(BASE + '/next');
+        if (s.online !== true) setOnline(true);
+        if (r.status === 200) {
+          const job = await r.json();
+          // One job at a time: each one becomes its own undo step and its own row in the log.
+          const done = new Promise((res) => { finishJob = res; });
+          parent.postMessage({ pluginMessage: { type: 'job', id: job.id, code: job.code, label: job.label } }, '*');
+          // A job that never settles must not stop the bridge for good.
+          await Promise.race([done, sleep(15 * 60000)]);
+        }
+      } catch (e) {
+        if (s.online !== false) setOnline(false);
+        await sleep(2000);
+      }
+    }
+  }
+
+  async function pingLoop() {
+    for (;;) {
+      try {
+        const r = await fetch(BASE + '/ping');
+        s.legacy = r.status !== 200;
+        if (!s.legacy) {
+          const p = await r.json();
+          s.claudeMsAgo = p.claudeMsAgo;
+          s.claudeAt = Date.now();
+        }
+        if (s.online !== true) setOnline(true);
+      } catch (e) {
+        if (s.online !== false) setOnline(false);
+      }
+      await sleep(2500);
+    }
+  }
+
+  // ---------- messages from code.js ----------
+  onmessage = (event) => {
+    const m = event.data && event.data.pluginMessage;
+    if (!m) return;
+    // Views may listen to anything code.js sends (frames of the page, nodes a job touched, …).
+    call('message', m);
+    if (m.type === 'hello') {
+      s.info = m.info;
+      call('context', s.info);
+      sendHello();
+    }
+    if (m.type === 'compact') { s.compact = !!m.on; call('compact', s.compact); }
+    if (m.type === 'start') {
+      s.busy = { id: m.id, label: m.label, started: Date.now(), text: null, fraction: null };
+      s.flash = null;
+      const entry = { id: m.id, label: m.label || 'команда', status: 'run', at: new Date(), ms: null, error: null };
+      s.log.unshift(entry);
+      if (s.log.length > LOG_MAX) s.log.length = LOG_MAX;
+      call('logAdd', entry);
+    }
+    if (m.type === 'progress' && s.busy) { s.busy.text = m.text; s.busy.fraction = m.fraction; }
+    if (m.type === 'count') s.jobs = m.jobs;
+    if (m.type === 'result') {
+      const label = s.busy && s.busy.label;
+      s.busy = null;
+      s.flash = m.ok
+        ? { state: 'done', until: Date.now() + FLASH_MS.done, label, ms: m.ms }
+        : { state: 'error', until: Date.now() + FLASH_MS.error, label, error: m.error || 'unknown error', ms: m.ms };
+      s.claudeMsAgo = 0; s.claudeAt = Date.now();
+      const entry = s.log.find((e) => e.id === m.id);
+      if (entry) {
+        entry.status = m.ok ? 'ok' : 'err';
+        entry.ms = m.ms || 0;
+        entry.error = m.ok ? null : (m.error || 'unknown error');
+        call('logUpdate', entry);
+      }
+      post(m).catch(() => setOnline(false));
+      if (finishJob) { finishJob(); finishJob = null; }
+    }
+    render();
+  };
+
+  window.Relay = {
+    model,
+    fmtMs,
+    ago,
+    log: () => s.log,
+    toggleCompact() {
+      s.compact = !s.compact;
+      call('compact', s.compact);
+      parent.postMessage({ pluginMessage: { type: 'compact', on: s.compact } }, '*');
+      render();
+    },
+    async copyCommand() {
+      try { await navigator.clipboard.writeText(COMMAND); } catch (e) {
+        // The plugin iframe may not have clipboard permission.
+        const ta = document.createElement('textarea');
+        ta.value = COMMAND; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      }
+    },
+  };
+
+  setInterval(render, 250);
+  render();
+  jobLoop();
+  pingLoop();
+})();
+</script>
+</body>
+</html>

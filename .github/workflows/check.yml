@@ -26,6 +26,9 @@ jobs:
       - name: Validate skills and generated files
         run: npm run check
 
+      - name: Offline tests (installer, server, fig.js with a fake plugin)
+        run: npm test
+
       - name: No template placeholders left
         if: github.repository != 'relatetest/template-plugin'
         run: |
