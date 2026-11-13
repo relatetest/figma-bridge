@@ -18,7 +18,7 @@ node skills/relate-figma-bridge/scripts/install.mjs --help
 - `skills/relate-figma-bridge/SKILL.md`: the route (official Figma MCP first, bridge when it is missing, unauthenticated, failing, or asked for) and how to drive the bridge.
 - `skills/relate-figma-bridge/assets/bridge/`: `server.js` (relay on 127.0.0.1:3055), `fig.js` (agent CLI), `plugin/` (Design, FigJam, Slides), `plugin-dev/manifest.json` (Dev Mode twin; `code.js` and `ui.html` are copied in by the installer and by `server.js`). CommonJS, Node built-ins only.
 - `skills/relate-figma-bridge/scripts/install.mjs`: installs or updates the bridge folder, copies the skill to `~/.claude/skills` and `~/.agents/skills` with `--skills`, writes the routing rule with `--project` / `--global`.
-- `scripts/quick-install.mjs`: the `bin` of `npx -y github:relatetest/figma-bridge`, the one public install command; runs `install.mjs --skills --global` plus the person's flags. The README section "Для агента" describes it for agents: keep both in step.
+- `scripts/quick-install.mjs`: the `bin` of `npx -y --allow-git=root github:relatetest/figma-bridge`, the one public install command; runs `install.mjs --skills --global` plus the person's flags. The README section "Для агента" describes it for agents: keep both in step.
 - The repo is public: anyone may run the one-liner. Nothing in it may assume access to the studio org.
 - `tests/`: `node:test` suites, no Figma.
 

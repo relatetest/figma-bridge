@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // One command for anyone, nothing to decide:
 //
-//   npx -y github:relatetest/figma-bridge                  bridge + skill for every agent + the rule in their global instructions
-//   npx -y github:relatetest/figma-bridge --project .      the same, plus the rule in this project's AGENTS.md / CLAUDE.md
-//   npx -y github:relatetest/figma-bridge --no-rule        skip the global instructions
-//   npx -y github:relatetest/figma-bridge --dry-run        show what would change
+//   npx -y --allow-git=root github:relatetest/figma-bridge                  bridge + skill for every agent + the rule in their global instructions
+//   npx -y --allow-git=root github:relatetest/figma-bridge --project .      the same, plus the rule in this project's AGENTS.md / CLAUDE.md
+//   npx -y --allow-git=root github:relatetest/figma-bridge --no-rule        skip the global instructions
+//   npx -y --allow-git=root github:relatetest/figma-bridge --dry-run        show what would change
 //
 // It runs the skill's own installer (skills/relate-figma-bridge/scripts/install.mjs) with
 // --skills --global, so the result is the same as when an agent installs the bridge itself.

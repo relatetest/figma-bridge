@@ -15,8 +15,10 @@
 Или одной командой в терминале, если стоит Node.js 18+ (https://nodejs.org, версия LTS):
 
 ```bash
-npx -y github:relatetest/figma-bridge
+npx -y --allow-git=root github:relatetest/figma-bridge
 ```
+
+Флаг `--allow-git=root` нужен npm 12 и новее: по умолчанию они не ставят пакеты прямо с GitHub. Старый npm его просто пропускает. Ещё нужен git: на Mac, если его нет, система сама предложит поставить инструменты разработчика.
 
 Что она делает:
 
@@ -33,7 +35,7 @@ npx -y github:relatetest/figma-bridge
 Чтобы правило лежало в инструкциях проекта и работало у всех, кто его открывает, запусти из папки проекта:
 
 ```bash
-npx -y github:relatetest/figma-bridge --project .
+npx -y --allow-git=root github:relatetest/figma-bridge --project .
 ```
 
 Команда допишет блок в `AGENTS.md` проекта и в `CLAUDE.md`. Если `CLAUDE.md` нет, создаст его с одной строкой `@AGENTS.md`. Повторный запуск обновляет блок на месте, `--dry-run` показывает, что изменится. Можно и просто сказать агенту «пропиши figma-bridge в этот проект».
@@ -51,7 +53,7 @@ claude plugin install figma-bridge@relate
 Steps for an AI agent asked to install this. Run them yourself; the person only clicks in Figma.
 
 1. Check `node -v`. If Node.js is missing or older than 18, ask the person to install the LTS from https://nodejs.org (or install it with `winget install OpenJS.NodeJS.LTS` on Windows, `brew install node` on macOS, if they allow it), then continue.
-2. Run `npx -y github:relatetest/figma-bridge`. Add `--project <dir>` if the person wants the rule in a project. If `npx` cannot fetch from GitHub (no git), download https://github.com/relatetest/figma-bridge/archive/refs/heads/main.zip, unpack it to a temporary folder and run `node <folder>/scripts/quick-install.mjs` with the same flags.
+2. Run `npx -y --allow-git=root github:relatetest/figma-bridge`. Add `--project <dir>` if the person wants the rule in a project. If `npx` cannot fetch from GitHub (no git), download https://github.com/relatetest/figma-bridge/archive/refs/heads/main.zip, unpack it to a temporary folder and run `node <folder>/scripts/quick-install.mjs` with the same flags.
 3. Read the JSON it prints. Tell the person, in their language, the one click left: Figma desktop → Plugins → Development → Import plugin from manifest… → the `manifest` path. Never click in their Figma yourself.
 4. Tell the person to start a new agent session so the `relate-figma-bridge` skill loads. From then on, follow that skill for any Figma work.
 

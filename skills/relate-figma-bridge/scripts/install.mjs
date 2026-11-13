@@ -142,7 +142,8 @@ function installSkills() {
       mkdirSync(path.dirname(file), { recursive: true });
       writeFileSync(file, data);
     }
-    return { dir: dst, action: changed ? `${changed} file(s) written` : 'unchanged' };
+    if (!changed) return { dir: dst, action: 'unchanged' };
+    return { dir: dst, action: opts.dryRun ? `${changed} file(s) to write` : `${changed} file(s) written` };
   });
 }
 
@@ -250,7 +251,8 @@ try {
       if (install.changed.some((f) => f === 'server.js' || f === 'fig.js') && existsSync(path.join(HOME, '.token'))) {
         say('Сервер моста обновился: если он сейчас запущен, перезапусти его.');
       }
-      if (install.changed.some((f) => f.startsWith('plugin'))) say('Код плагина обновился: закрой и открой плагин в Figma.');
+      const firstInstall = install.changed.includes('plugin/manifest.json');
+      if (!firstInstall && install.changed.some((f) => f.startsWith('plugin'))) say('Код плагина обновился: закрой и открой плагин в Figma.');
     } else say(`Мост уже актуален: ${HOME}.`);
   }
   for (const s of skills) say(`скилл ${s.dir}: ${s.action}`);
